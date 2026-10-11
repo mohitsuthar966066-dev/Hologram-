@@ -1,0 +1,491 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#030914">
+<title>HoloModel | J.A.R.V.I.S. 3D Lab</title>
+<style>
+:root{--bg:#030914;--panel:#071729;--cyan:#19d9ff;--blue:#1686ff;--orange:#ff8a35;--line:#164665;--text:#eafaff;--muted:#81aabd}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;width:100%;background:var(--bg);color:var(--text);font-family:Arial,sans-serif}
+body{overflow-x:hidden}button,input{font:inherit}
+button{background:#09243a;border:1px solid #176080;color:var(--text);border-radius:8px;padding:9px 10px;cursor:pointer;touch-action:manipulation}
+button:active{background:#10435c}button:disabled{opacity:.5}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line);background:#04101df2}
+.logo{font-weight:800;letter-spacing:1px;color:var(--cyan);font-size:19px}
+.subtitle{font-size:10px;color:var(--muted);letter-spacing:2px;margin-top:4px}
+.status{font-size:10px;color:var(--cyan);text-align:right}
+.layout{display:grid;grid-template-columns:155px minmax(0,1fr) 195px;gap:10px;padding:10px;max-width:1500px;margin:auto}
+.panel{background:linear-gradient(160deg,#081c30,#040d19);border:1px solid var(--line);border-radius:12px;padding:11px;min-width:0}
+.panel h3{font-size:12px;letter-spacing:1.4px;color:var(--cyan);margin:2px 0 12px}
+.library{display:flex;flex-direction:column;gap:7px}
+.model-btn{text-align:left;font-size:11px;min-height:39px}
+.model-btn.active{border-color:var(--cyan);box-shadow:inset 3px 0 var(--cyan);background:#0a3046}
+.small{font-size:11px;color:var(--muted);line-height:1.5}
+#stage{height:min(64vh,600px);min-height:330px;position:relative;overflow:hidden;border:1px solid #125071;border-radius:12px;background:radial-gradient(ellipse at center,#0a2540,#04101f 55%,#020711)}
+#stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.hud{position:absolute;z-index:2;left:10px;right:10px;top:10px;display:flex;justify-content:space-between;gap:8px;pointer-events:none}
+.hud span{font-size:9px;letter-spacing:1px;color:#8cecff;background:#04101dcc;padding:6px;border:1px solid #15516b;border-radius:6px}
+#loading{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;text-align:center;padding:22px;background:#030914ed;color:var(--cyan);font-size:13px;line-height:1.8}
+#loading.hidden{display:none}
+.controls{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.controls button{font-size:10px;flex:1;min-width:68px}
+.section{margin-top:12px}.section h4{margin:0 0 7px;font-size:11px;color:var(--cyan);letter-spacing:1px}
+#jarvisText{font-size:12px;line-height:1.6;color:#d2f5ff;min-height:80px;white-space:pre-wrap;overflow-wrap:anywhere}
+.chat{display:flex;flex-direction:column;gap:7px;margin-top:10px}
+.chat input{width:100%;min-width:0;padding:10px;background:#020b15;color:white;border:1px solid #164665;border-radius:8px;outline:none}
+.chat button{font-size:10px}
+#cameraBox{display:none;position:relative;margin-top:9px}
+#cameraBox.show{display:block}
+#cameraVideo{width:100%;max-height:160px;object-fit:cover;border-radius:8px;transform:scaleX(-1);background:#020711}
+#cameraStatus,.footerNote{font-size:10px;color:#81aabd;line-height:1.5;margin-top:7px}
+#fileInput{width:100%;font-size:10px;color:var(--muted);margin-top:8px}
+@media(max-width:760px){
+ .layout{grid-template-columns:minmax(0,1fr);padding:7px;gap:8px}
+ header{padding:10px}.logo{font-size:16px}.subtitle{font-size:9px}
+ .layout>.panel:first-child{order:1}
+ #stageWrap{order:0}
+ .layout>.sidePanel{order:2}
+ .library{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+ .model-btn{font-size:10px;padding:7px 3px;text-align:center;min-height:38px}
+ #stage{height:52vh;min-height:290px;max-height:520px}
+ .panel{padding:10px}
+ .status{max-width:120px}
+ .sidePanel .section{margin-top:8px}
+}
+</style>
+</head>
+<body>
+<header>
+ <div><div class="logo">⬡ HOLOMODEL</div><div class="subtitle">J.A.R.V.I.S. • 3D LAB</div></div>
+ <div class="status" id="topStatus">STARTING…</div>
+</header>
+
+<main class="layout">
+ <aside class="panel">
+  <h3>PROJECT LAB</h3>
+  <div class="library">
+   <button class="model-btn active" data-model="reactor">Arc Reactor</button>
+   <button class="model-btn" data-model="robot">Robot Core</button>
+   <button class="model-btn" data-model="engine">Jet Engine</button>
+   <button class="model-btn" data-model="earth">Digital Earth</button>
+   <button class="model-btn" data-model="dna">DNA Helix</button>
+   <button class="model-btn" data-model="satellite">Satellite</button>
+   <button class="model-btn" data-model="turbine">Power Turbine</button>
+  </div>
+  <div class="section">
+   <h4>OWN MODEL</h4>
+   <div class="small">Load a .glb or .gltf 3D model from your device.</div>
+   <input id="fileInput" type="file" accept=".glb,.gltf">
+  </div>
+  <div class="footerNote">Choose a model to inspect it. Custom models may require linked texture files.</div>
+ </aside>
+
+ <section id="stageWrap">
+  <div id="stage">
+   <div class="hud"><span id="modelLabel">ARC REACTOR / MK-III</span><span>HOLOGRAM VIEW</span></div>
+   <div id="loading">INITIALIZING 3D LAB…<br>Loading 3D engine</div>
+  </div>
+  <div class="controls">
+   <button id="rotateBtn">Rotate: ON</button>
+   <button id="explodeBtn">Explode Parts</button>
+   <button id="wireBtn">Wireframe</button>
+   <button id="xrayBtn">X-Ray</button>
+   <button id="resetBtn">Reset View</button>
+  </div>
+  <div class="controls">
+   <button id="zoomIn">＋ Zoom</button>
+   <button id="zoomOut">－ Zoom</button>
+   <button id="handBtn">Start Hand Tracking</button>
+   <button id="explainBtn">Explain Model</button>
+  </div>
+  <div class="controls">
+   <button id="wakeBtn">Voice Wake-up</button>
+   <button id="explainAllBtn">Explain All</button>
+  </div>
+  <div id="cameraBox">
+   <video id="cameraVideo" autoplay playsinline muted></video>
+   <div id="cameraStatus">Camera not started.</div>
+  </div>
+ </section>
+
+ <aside class="panel sidePanel">
+  <h3>J.A.R.V.I.S. SYSTEM</h3>
+  <div class="small">AI GUIDE • MODEL ANALYSIS</div>
+  <div class="section"><h4>LIVE REPORT</h4><div id="jarvisText">Welcome. I am J.A.R.V.I.S. Select a model and I will explain its visible components.</div></div>
+  <div class="chat">
+   <input id="askInput" placeholder="Ask J.A.R.V.I.S.…">
+   <button id="askBtn">Ask J.A.R.V.I.S.</button>
+   <button id="voiceBtn">Read Explanation Aloud</button>
+   <button id="stopVoiceBtn">Stop Voice</button>
+  </div>
+  <div class="section"><h4>GESTURE GUIDE</h4><div class="small">One hand: move sideways to move the model, move up/down to rotate, pinch thumb and index finger to zoom. Two hands: move both hands apart or together to zoom.</div></div>
+  <div class="footerNote">Hand tracking requires HTTPS, internet, camera permission and a compatible browser. Touch controls remain available if camera tracking fails.</div>
+ </aside>
+</main>
+
+<script type="module">
+const $=id=>document.getElementById(id);
+const stage=$("stage"),loading=$("loading"),topStatus=$("topStatus");
+const jarvisText=$("jarvisText"),modelLabel=$("modelLabel");
+let THREE,scene,camera,renderer,root,clock;
+let currentModel="reactor",autoRotate=true,exploded=false,wireframe=false,xray=false;
+let zoom=7.5,targetZoom=7.5,animationStarted=false,handRunning=false;
+let handLandmarker=null,cameraStream=null,handRAF=0,handBusy=false;
+let lastHandX=null,lastHandY=null,lastPinch=null,lastTwoDistance=null;
+let smoothX=0,smoothRotX=0,smoothRotY=0,targetX=0,targetRotX=0,targetRotY=0;
+let pointerDown=false,lastX=0,lastY=0,pinchStart=0,pinchZoom=7.5;
+let recognition=null,wakeListening=false,customModel=false;
+const modelNames={reactor:"ARC REACTOR / MK-III",robot:"ROBOT CORE",engine:"JET ENGINE",earth:"DIGITAL EARTH",dna:"DNA HELIX",satellite:"SATELLITE",turbine:"POWER TURBINE",custom:"CUSTOM 3D MODEL"};
+function status(s){topStatus.textContent=s}
+function showLoading(s){loading.innerHTML=s;loading.classList.remove("hidden")}
+function hideLoading(){loading.classList.add("hidden")}
+function mat(color,extra={}){return new THREE.MeshStandardMaterial({color,metalness:.72,roughness:.27,emissive:color,emissiveIntensity:.22,...extra})}
+function mesh(g,geo,m,p=[0,0,0],r=[0,0,0]){const o=new THREE.Mesh(geo,m);o.position.set(...p);o.rotation.set(...r);g.add(o);return o}
+function cyl(g,rt,rb,h,c,p=[0,0,0],n=32){return mesh(g,new THREE.CylinderGeometry(rt,rb,h,n),mat(c),p)}
+function tor(g,r,t,c,p=[0,0,0],rot=[0,0,0]){return mesh(g,new THREE.TorusGeometry(r,t,10,64),mat(c,{metalness:.85,roughness:.2}),p,rot)}
+function sph(g,r,c,p=[0,0,0],s=[1,1,1]){const o=mesh(g,new THREE.SphereGeometry(r,24,18),mat(c),p);o.scale.set(...s);return o}
+function box(g,s,c,p=[0,0,0],r=[0,0,0]){return mesh(g,new THREE.BoxGeometry(...s),mat(c),p,r)}
+
+function makeReactor(){
+ const g=new THREE.Group(),steel=0x7895a8;
+ cyl(g,1.12,1.12,.24,0x243d54);tor(g,1.13,.11,0x1686ff);tor(g,.94,.075,0xff8a35);tor(g,.73,.065,0x19d9ff);
+ cyl(g,.57,.57,.13,0x163e57,[0,0,.16]);tor(g,.43,.045,0x8cecff,[0,0,.24]);
+ const core=sph(g,.33,0x19d9ff,[0,0,.28]);core.material.emissiveIntensity=1.7;
+ for(let i=0;i<12;i++){const a=i*Math.PI/6,x=Math.cos(a),y=Math.sin(a);
+  cyl(g,.05,.05,.1,0xb3eaff,[x*.99,y*.99,.18],10);
+  tor(g,.16,.024,0xff8a35,[x*.53,y*.53,.25]);
+ }
+ for(let i=0;i<8;i++){const a=i*Math.PI/4;box(g,[.13,.43,.08],steel,[Math.cos(a)*.78,Math.sin(a)*.78,.1],[0,0,a])}
+ return g;
+}
+function makeRobot(){
+ const g=new THREE.Group();sph(g,.7,0x1a3348,[0,0,0],[1,1,.8]);tor(g,.77,.08,0x19d9ff);
+ cyl(g,.36,.48,.25,0x456a82,[0,0,.52]);sph(g,.37,0x28465c,[0,0,.76]);sph(g,.12,0x19d9ff,[0,0,1.06],[1,1,.5]);
+ for(let i=0;i<6;i++){const a=i*Math.PI/3,x=Math.cos(a),y=Math.sin(a);
+  const arm=cyl(g,.08,.1,.43,0x6f8da2,[x*.82,y*.82,.03],14);arm.rotation.z=a;
+  sph(g,.11,0xff8a35,[x*1.05,y*1.05,.04]);
+ }
+ for(let i=0;i<4;i++)tor(g,.42+i*.07,.018,0x1686ff,[0,0,-.22+i*.12]);
+ return g;
+}
+function makeEngine(){
+ const g=new THREE.Group();cyl(g,.7,.9,1.35,0x45677e);tor(g,.76,.1,0x19d9ff,[0,0,.56]);tor(g,.72,.07,0xff8a35,[0,0,-.58]);
+ cyl(g,.44,.66,.28,0x203b50,[0,0,-.8]);cyl(g,.26,.42,.2,0x19d9ff,[0,0,-1.03]);
+ for(let i=0;i<10;i++){const a=i*Math.PI/5;box(g,[.13,.5,.08],0x87a6b8,[Math.cos(a)*.42,Math.sin(a)*.42,.77],[0,0,a+.4])}
+ for(let i=0;i<8;i++){const a=i*Math.PI/4;box(g,[.09,.09,1.02],0x8ba8ba,[Math.cos(a)*.77,Math.sin(a)*.77,0],[0,0,a])}
+ tor(g,.86,.05,0x1686ff,[0,0,.68]);return g;
+}
+function makeEarth(){
+ const g=new THREE.Group();sph(g,1,0x0b3154);
+ const wire=mesh(g,new THREE.SphereGeometry(1.015,24,16),new THREE.MeshBasicMaterial({color:0x19d9ff,wireframe:true,transparent:true,opacity:.45}));
+ for(let i=0;i<5;i++){const lat=(i-2)*.38,r=Math.sqrt(1-lat*lat);tor(g,r,.012,0x1686ff,[0,0,lat],[Math.PI/2,0,0])}
+ tor(g,1.15,.018,0x19d9ff,[0,0,0],[Math.PI/2,0,0]);tor(g,1.2,.012,0xff8a35,[0,0,0],[.8,.3,.4]);
+ for(let i=0;i<20;i++){const a=i*Math.PI/10;sph(g,.022,0x9cf3ff,[Math.cos(a)*1.04,Math.sin(a)*1.04,0])}
+ return g;
+}
+function makeDNA(){
+ const g=new THREE.Group(),colors=[0x19d9ff,0xff8a35];
+ for(let i=0;i<38;i++){const t=i*.22,y=(i-18)*.06,x=Math.cos(t)*.53,z=Math.sin(t)*.53;
+  sph(g,.05,colors[0],[x,y,z]);sph(g,.05,colors[1],[-x,y,-z]);
+  if(i%2===0){const a=mesh(g,new THREE.CylinderGeometry(.018,.018,Math.hypot(2*x,2*z),8),mat(0x81b7ce),[0,y,0]);a.rotation.z=Math.PI/2;a.rotation.y=Math.atan2(-2*z,-2*x)}
+ }
+ return g;
+}
+function makeSatellite(){
+ const g=new THREE.Group();box(g,[.55,.55,.55],0x647f95);sph(g,.18,0x19d9ff);
+ for(const side of [-1,1]){
+  box(g,[.85,.48,.045],0x1686ff,[side*.72,0,0]);
+  for(let i=0;i<4;i++)box(g,[.16,.44,.02],0x62caff,[side*(.4+i*.21),0,.03]);
+  box(g,[.1,.1,1.0],0x8ca8ba,[side*.25,0,.55]);
+ }
+ cyl(g,.06,.06,.95,0xff8a35,[0,0,-.65]);sph(g,.12,0xff8a35,[0,0,-1.1]);return g;
+}
+function makeTurbine(){
+ const g=new THREE.Group();cyl(g,.48,.58,.75,0x435e75);tor(g,.58,.07,0x19d9ff,[0,0,.35]);tor(g,.58,.07,0xff8a35,[0,0,-.35]);
+ cyl(g,.15,.15,1.25,0x9bb5c5);sph(g,.2,0x19d9ff,[0,0,.62]);
+ for(let i=0;i<12;i++){const a=i*Math.PI/6;box(g,[.12,.48,.07],i%2?0x6f94aa:0x19d9ff,[Math.cos(a)*.34,Math.sin(a)*.34,.03],[0,0,a+.4])}
+ return g;
+}
+function createModel(name){
+ return ({reactor:makeReactor,robot:makeRobot,engine:makeEngine,earth:makeEarth,dna:makeDNA,satellite:makeSatellite,turbine:makeTurbine}[name]||makeReactor)();
+}
+function init3D(){
+ scene=new THREE.Scene();scene.fog=new THREE.FogExp2(0x030914,.035);
+ camera=new THREE.PerspectiveCamera(45,1,.1,100);camera.position.z=zoom;
+ renderer=new THREE.WebGLRenderer({antialias:false,alpha:true,powerPreference:"high-performance"});
+ renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.35));
+ renderer.setSize(stage.clientWidth,stage.clientHeight);
+ renderer.outputColorSpace=THREE.SRGBColorSpace;
+ stage.insertBefore(renderer.domElement,loading);
+ scene.add(new THREE.AmbientLight(0x83caff,1.7));
+ const key=new THREE.PointLight(0x19d9ff,30,16);key.position.set(3,3,4);scene.add(key);
+ const rim=new THREE.PointLight(0xff8a35,15,12);rim.position.set(-3,-2,-2);scene.add(rim);
+ const grid=new THREE.GridHelper(12,24,0x125071,0x09273c);grid.position.y=-1.65;scene.add(grid);
+ buildModel();clock=new THREE.Clock();
+ window.addEventListener("resize",resize3D);
+ if(!animationStarted){animationStarted=true;requestAnimationFrame(animate)}
+ hideLoading();status("3D ENGINE ONLINE");
+}
+function buildModel(){
+ if(!scene)return;
+ if(root){scene.remove(root);disposeObject(root)}
+ root=createModel(currentModel);scene.add(root);customModel=false;
+ root.position.set(0,0,0);root.rotation.set(0,0,0);
+ targetX=targetRotX=targetRotY=0;smoothX=smoothRotX=smoothRotY=0;
+ exploded=wireframe=xray=false;
+ $("explodeBtn").textContent="Explode Parts";$("wireBtn").textContent="Wireframe";$("xrayBtn").textContent="X-Ray";
+ modelLabel.textContent=modelNames[currentModel]||"HOLOMODEL";
+ document.querySelectorAll(".model-btn").forEach(b=>b.classList.toggle("active",b.dataset.model===currentModel));
+ explainModel();
+}
+function disposeObject(obj){
+ obj.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){for(const m of Array.isArray(o.material)?o.material:[o.material])if(m&&m.dispose)m.dispose()}});
+}
+function resize3D(){
+ if(!renderer||!camera)return;const w=stage.clientWidth,h=stage.clientHeight;if(!w||!h)return;
+ camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h);
+}
+function animate(){
+ requestAnimationFrame(animate);
+ if(!renderer||!scene||!camera)return;
+ const dt=Math.min(clock?clock.getDelta():.016,.05),k=1-Math.exp(-10*dt);
+ zoom+=(targetZoom-zoom)*k;camera.position.z=zoom;
+ if(root){
+  smoothX+=(targetX-smoothX)*k;smoothRotX+=(targetRotX-smoothRotX)*k;smoothRotY+=(targetRotY-smoothRotY)*k;
+  root.position.x+=(smoothX-root.position.x)*k;
+  if(autoRotate&&!pointerDown&&!handRunning&&!customModel)targetRotY+=dt*.35;
+  root.rotation.x+=(targetRotX-root.rotation.x)*k;
+  root.rotation.y+=(targetRotY-root.rotation.y)*k;
+ }
+ renderer.render(scene,camera);
+}
+  
+function toggleExplode(){
+ if(!root)return;exploded=!exploded;
+ root.children.forEach((c,i)=>{
+  if(exploded){
+   c.userData.home=c.userData.home||c.position.clone();
+   const d=c.position.clone();
+   if(d.length()<.12)d.set(Math.sin(i*3.1),Math.cos(i*2.7),i%2?1:-1);
+   c.position.copy(c.userData.home).add(d.normalize().multiplyScalar(.22+(i%4)*.1));
+  }else if(c.userData.home)c.position.copy(c.userData.home);
+ });
+ $("explodeBtn").textContent=exploded?"Close Parts":"Explode Parts";
+}
+function setMaterialMode(){
+ if(!root)return;
+ root.traverse(o=>{
+  if(!o.isMesh||!o.material)return;
+  const list=Array.isArray(o.material)?o.material:[o.material];
+  list.forEach(m=>{m.wireframe=wireframe;m.transparent=xray||m.userData?.wasTransparent||false;m.opacity=xray?.27:1;m.depthWrite=!xray});
+ });
+}
+function explainModel(){
+ const d={
+ reactor:"Arc Reactor: A fictional energy-core concept with a glowing central core, containment rings, coil-like components and outer housing. It is a visual model, not a real energy generator.",
+ robot:"Robot Core: A conceptual robotic chassis with a central sensor, support arms and illuminated status nodes.",
+ engine:"Jet Engine: An educational concept showing engine casing, fan blades, support ribs and exhaust nozzle. Real jet engines are much more complex.",
+ earth:"Digital Earth: A wireframe globe with orbital rings representing a digital planetary visualization.",
+ dna:"DNA Helix: Two twisting strands joined by cross-links, inspired by the structure of DNA.",
+ satellite:"Satellite: A conceptual satellite with solar panels, central equipment body and antenna.",
+ turbine:"Power Turbine: A conceptual rotor and blade assembly used to explain rotational machinery."
+ };
+ jarvisText.textContent=d[currentModel]||"Select a model to inspect it.";
+}
+function speak(text=jarvisText.textContent){
+ if(!("speechSynthesis"in window)){jarvisText.textContent+="\nSpeech output is not supported in this browser.";return}
+ speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.rate=.96;u.pitch=1.03;speechSynthesis.speak(u);
+}
+function answerQuestion(){
+ const q=$("askInput").value.trim().toLowerCase();if(!q)return;
+ let a;
+ if(/hello|hi|namaste/.test(q))a="Hello! I am J.A.R.V.I.S. Ask me about the selected model or say a control command.";
+ else if(/hand|gesture|camera/.test(q))a="Start Hand Tracking and allow camera access. Move sideways to move the model, move up/down to rotate, pinch thumb and index finger to zoom. With two hands, move them apart or together to zoom.";
+ else if(/zoom in/.test(q)){targetZoom=Math.max(3.3,targetZoom-.7);a="Zooming in."}
+ else if(/zoom out/.test(q)){targetZoom=Math.min(13,targetZoom+.7);a="Zooming out."}
+ else if(/left/.test(q)){targetX=Math.max(-2.2,targetX-.5);a="Moving the model left."}
+ else if(/right/.test(q)){targetX=Math.min(2.2,targetX+.5);a="Moving the model right."}
+ else if(/rotate/.test(q)){autoRotate=!autoRotate;$("rotateBtn").textContent="Rotate: "+(autoRotate?"ON":"OFF");a="Auto rotation "+(autoRotate?"enabled.":"disabled.")}
+ else if(/explode|open parts/.test(q)){toggleExplode();a=exploded?"Opening model parts.":"Closing model parts."}
+ else if(/reset/.test(q)){resetView();a="View reset."}
+ else if(/earth|globe/.test(q)){selectModel("earth");a="Digital Earth selected."}
+ else if(/reactor/.test(q)){selectModel("reactor");a="Arc Reactor selected."}
+ else if(/robot/.test(q)){selectModel("robot");a="Robot Core selected."}
+ else if(/engine/.test(q)){selectModel("engine");a="Jet Engine selected."}
+ else if(/dna/.test(q)){selectModel("dna");a="DNA Helix selected."}
+ else {explainModel();a=jarvisText.textContent}
+ jarvisText.textContent=a;
+}
+function resetView(){
+ if(!root)return;targetZoom=7.5;zoom=7.5;targetX=targetRotX=targetRotY=0;
+ root.position.set(0,0,0);root.rotation.set(0,0,0);
+ if(exploded)toggleExplode();wireframe=xray=false;setMaterialMode();
+ $("wireBtn").textContent="Wireframe";$("xrayBtn").textContent="X-Ray";
+}
+function selectModel(name){
+ currentModel=name;targetZoom=7.5;
+ if(scene)buildModel();
+}
+document.querySelectorAll(".model-btn").forEach(b=>b.addEventListener("click",()=>selectModel(b.dataset.model)));
+$("rotateBtn").onclick=()=>{autoRotate=!autoRotate;$("rotateBtn").textContent="Rotate: "+(autoRotate?"ON":"OFF")};
+$("explodeBtn").onclick=toggleExplode;
+$("wireBtn").onclick=()=>{wireframe=!wireframe;setMaterialMode();$("wireBtn").textContent=wireframe?"Solid View":"Wireframe"};
+$("xrayBtn").onclick=()=>{xray=!xray;setMaterialMode();$("xrayBtn").textContent=xray?"Normal View":"X-Ray"};
+$("resetBtn").onclick=resetView;
+$("zoomIn").onclick=()=>targetZoom=Math.max(3.3,targetZoom-.65);
+$("zoomOut").onclick=()=>targetZoom=Math.min(13,targetZoom+.65);
+$("explainBtn").onclick=explainModel;
+$("explainAllBtn").onclick=()=>speak(jarvisText.textContent);
+$("askBtn").onclick=answerQuestion;
+$("askInput").addEventListener("keydown",e=>{if(e.key==="Enter")answerQuestion()});
+$("voiceBtn").onclick=()=>speak();
+$("stopVoiceBtn").onclick=()=>{if("speechSynthesis"in window)speechSynthesis.cancel()};
+
+// Smooth touch/mouse rotation and pinch zoom
+stage.addEventListener("pointerdown",e=>{
+ if(e.target.closest("button"))return;
+ pointerDown=true;stage.setPointerCapture?.(e.pointerId);lastX=e.clientX;lastY=e.clientY;
+});
+stage.addEventListener("pointermove",e=>{
+ if(!pointerDown||!root)return;
+ const dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;
+ targetRotY+=dx*.008;targetRotX=Math.max(-1.4,Math.min(1.4,targetRotX+dy*.008));
+});
+function pointerEnd(){pointerDown=false}
+stage.addEventListener("pointerup",pointerEnd);stage.addEventListener("pointercancel",pointerEnd);
+stage.addEventListener("wheel",e=>{targetZoom=Math.max(3.3,Math.min(13,targetZoom+e.deltaY*.008))},{passive:true});
+
+// Import local GLB/GLTF model using Three.js loader
+$("fileInput").addEventListener("change",async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ try{
+  showLoading("LOADING YOUR MODEL…");
+  const {GLTFLoader}=await import("https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js");
+  const url=URL.createObjectURL(file),loader=new GLTFLoader();
+  loader.load(url,gltf=>{
+   if(root){scene.remove(root);disposeObject(root)}
+   root=gltf.scene;scene.add(root);customModel=true;currentModel="custom";
+   root.position.set(0,0,0);root.rotation.set(0,0,0);targetX=targetRotX=targetRotY=0;
+   modelLabel.textContent=file.name.toUpperCase().slice(0,35);jarvisText.textContent="Custom model loaded: "+file.name+". Drag to rotate and use zoom controls.";
+   document.querySelectorAll(".model-btn").forEach(b=>b.classList.remove("active"));
+   URL.revokeObjectURL(url);hideLoading();
+  },undefined,err=>{URL.revokeObjectURL(url);showLoading("MODEL COULD NOT BE LOADED.<br>Try a valid .glb file, then reload the page.<br><button id='retryLoad'>Return to Lab</button>");$("retryLoad").onclick=()=>{hideLoading();buildModel()}});
+ }catch(err){showLoading("MODEL LOADER ERROR.<br>Check internet and try again.<br><button id='retryLoad'>Return to Lab</button>");$("retryLoad").onclick=()=>{hideLoading();buildModel()}}
+});
+
+// Hand tracking: one or two hands, smoothed gestures
+async function startHandTracking(){
+ if(handRunning){stopHandTracking();return}
+ $("handBtn").disabled=true;$("cameraBox").classList.add("show");$("cameraStatus").textContent="Loading hand tracking…";
+ try{
+  if(!navigator.mediaDevices?.getUserMedia)throw new Error("Camera unavailable. Open GitHub Pages in Chrome over HTTPS.");
+  const mp=await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm");
+  const vision=await mp.FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+  const options={baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",delegate:"GPU"},runningMode:"VIDEO",numHands:2};
+  try{handLandmarker=await mp.HandLandmarker.createFromOptions(vision,options)}
+  catch(gpuError){options.baseOptions.delegate="CPU";handLandmarker=await mp.HandLandmarker.createFromOptions(vision,options)}
+  cameraStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:"user",width:{ideal:480},height:{ideal:360},frameRate:{ideal:24,max:30}}});
+  const video=$("cameraVideo");video.srcObject=cameraStream;await video.play();
+  handRunning=true;lastHandX=lastHandY=lastPinch=lastTwoDistance=null;
+  $("handBtn").textContent="Stop Hand Tracking";$("cameraStatus").textContent="Tracking active • one or two hands";
+  status("HAND TRACKING ON");jarvisText.textContent="Hand tracking active. Move sideways to move the model, move up/down to rotate and pinch to zoom.";
+  detectHand();
+ }catch(err){
+  stopHandTracking();$("cameraBox").classList.add("show");
+  $("cameraStatus").textContent="Could not start: "+(err.message||"camera or network error");
+  jarvisText.textContent="Hand tracking could not start. Check camera permission, internet and HTTPS. Touch controls are still available.";
+  status("3D ENGINE ONLINE");
+ }finally{$("handBtn").disabled=false}
+}
+function detectHand(){
+ if(!handRunning||handBusy)return;
+ const video=$("cameraVideo");
+ if(video.readyState>=2&&handLandmarker){
+  handBusy=true;
+  try{
+   const result=handLandmarker.detectForVideo(video,performance.now());
+   const hands=result.landmarks||[];
+   if(hands.length){
+    const centers=hands.map(l=>({x:(l[0].x+l[5].x+l[9].x+l[13].x+l[17].x)/5,y:(l[0].y+l[5].y+l[9].y+l[13].y+l[17].y)/5}));
+    const main=centers[0],lm=hands[0];
+    const pinch=Math.hypot(lm[4].x-lm[8].x,lm[4].y-lm[8].y);
+    if(lastHandX!==null){
+     const dx=main.x-lastHandX,dy=main.y-lastHandY;
+     // Damped incremental rotation and movement
+     targetX=Math.max(-2.2,Math.min(2.2,targetX-dx*3.0));
+     targetRotX=Math.max(-1.4,Math.min(1.4,targetRotX+dy*2.0));
+     targetRotY+=dx*1.8;
+     if(lastPinch!==null){
+      const pd=pinch-lastPinch;
+      if(Math.abs(pd)>.006)targetZoom=Math.max(3.3,Math.min(13,targetZoom-pd*10));
+     }
+    }
+    // Two-hand separation provides an additional stable zoom gesture
+    if(centers.length>=2){
+     const dist=Math.hypot(centers[0].x-centers[1].x,centers[0].y-centers[1].y);
+     if(lastTwoDistance!==null){
+      const change=dist-lastTwoDistance;
+      if(Math.abs(change)>.008)targetZoom=Math.max(3.3,Math.min(13,targetZoom-change*7));
+     }
+     lastTwoDistance=dist;
+    }else lastTwoDistance=null;
+    lastHandX=main.x;lastHandY=main.y;lastPinch=pinch;
+   }else{lastHandX=lastHandY=lastPinch=lastTwoDistance=null}
+  }catch(err){console.warn("Hand detection:",err)}
+  handBusy=false;
+ }
+ handRAF=requestAnimationFrame(detectHand);
+}
+function stopHandTracking(){
+ handRunning=false;cancelAnimationFrame(handRAF);
+ if(cameraStream){cameraStream.getTracks().forEach(t=>t.stop());cameraStream=null}
+ const v=$("cameraVideo");if(v)v.srcObject=null;
+ if(handLandmarker){try{handLandmarker.close()}catch(e){}handLandmarker=null}
+ $("handBtn").textContent="Start Hand Tracking";
+ $("cameraStatus").textContent="Hand tracking stopped.";
+ lastHandX=lastHandY=lastPinch=lastTwoDistance=null;
+ status(renderer?"3D ENGINE ONLINE":"STARTING…");
+}
+$("handBtn").onclick=startHandTracking;
+
+// Voice wake-up: browser speech recognition, if supported
+function startWake(){
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SR){jarvisText.textContent="Voice wake-up is not supported in this browser. Use the Ask J.A.R.V.I.S. box instead.";return}
+ if(wakeListening){recognition?.stop();wakeListening=false;$("wakeBtn").textContent="Voice Wake-up";return}
+ recognition=new SR();recognition.lang="en-IN";recognition.continuous=true;recognition.interimResults=false;
+ recognition.onresult=e=>{
+  const text=e.results[e.results.length-1][0].transcript.toLowerCase();
+  if(text.includes("jarvis")){
+   const command=text.replace(/jarvis/g,"").trim();
+   $("askInput").value=command||"hello";answerQuestion();
+  }
+ };
+ recognition.onerror=()=>{wakeListening=false;$("wakeBtn").textContent="Voice Wake-up"};
+ recognition.onend=()=>{if(wakeListening){try{recognition.start()}catch(e){}}};
+ try{recognition.start();wakeListening=true;$("wakeBtn").textContent="Stop Voice Wake-up";jarvisText.textContent="Voice wake-up listening. Say “Jarvis” followed by a command. Keep this page open."}
+ catch(e){jarvisText.textContent="Could not start voice recognition. Check microphone permission."}
+}
+$("wakeBtn").onclick=startWake;
+window.addEventListener("pagehide",()=>{stopHandTracking();if("speechSynthesis"in window)speechSynthesis.cancel()});
+
+// Robust engine loading: failure message instead of an endless loading screen
+async function boot(){
+ try{
+  showLoading("INITIALIZING 3D LAB…<br>Connecting to 3D engine");
+  THREE=await import("https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js");
+  init3D();
+ }catch(err){
+  console.error(err);status("ENGINE ERROR");
+  showLoading("3D ENGINE COULD NOT LOAD.<br>Check internet and reload the page.<br><button id='retryBoot'>Retry Loading</button>");
+  $("retryBoot").onclick=boot;
+ }
+}
+boot();
+</script>
+</body>
+</html>
+  
