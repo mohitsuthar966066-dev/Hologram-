@@ -1,0 +1,440 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#020817">
+<title>HoloModel | Holographic Lab</title>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#020817;color:#e8faff;font-family:Arial,sans-serif;overflow:hidden}
+header{height:58px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #12394b;background:#061322}
+.logo{font-weight:bold;color:#54eaff;letter-spacing:1px}
+#status{font-size:11px;color:#9bd7e9}
+main{height:calc(100dvh - 58px);display:flex;flex-direction:column}
+#viewer{position:relative;flex:1;min-height:0;overflow:hidden;background:radial-gradient(ellipse at center,#092b43 0%,#03101f 52%,#01050d 100%)}
+#viewer:after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(transparent 96%,#16bce522 97%);background-size:100% 8px;opacity:.22}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+.hud{position:absolute;top:12px;left:12px;z-index:2;font-size:11px;color:#74eaff;pointer-events:none;text-shadow:0 0 8px #00cfff}
+#hint{position:absolute;bottom:12px;left:10px;right:10px;text-align:center;color:#b2eaff;font-size:11px;pointer-events:none;text-shadow:0 0 8px #001}
+.controls{padding:10px;display:flex;gap:7px;flex-wrap:wrap;justify-content:center;background:#061322;border-top:1px solid #12394b}
+button,.uploadLabel{background:#0b2437;color:#b9f6ff;border:1px solid #17627b;border-radius:8px;padding:10px 12px;font-size:12px;cursor:pointer}
+button:active,.uploadLabel:active{background:#14506b}
+button.primary{background:#07526b;border-color:#24cfff}
+select{max-width:100%;background:#0b2437;color:#c8f8ff;border:1px solid #17627b;border-radius:8px;padding:9px;font-size:12px}
+#file{display:none}
+#cameraPanel{display:none;position:absolute;right:10px;top:10px;width:100px;border:1px solid #24cfff;border-radius:8px;overflow:hidden;background:#000;z-index:4}
+#camera{width:100%;display:block;transform:scaleX(-1)}
+#camLabel{font-size:9px;text-align:center;padding:3px;background:#062438}
+#help{padding:8px 12px;background:#04101d;color:#9ac9d8;font-size:11px;line-height:1.5}
+@media(min-width:700px){
+ main{flex-direction:row}
+ #viewer{height:100%}
+ .side{width:240px;display:flex;flex-direction:column;background:#061322;border-left:1px solid #12394b}
+ .controls{align-content:flex-start}
+ button,.uploadLabel,select{width:100%;text-align:center}
+ #help{margin-top:auto}
+}
+</style>
+</head>
+
+<body>
+<header>
+ <div class="logo">✦ HOLOMODEL</div>
+ <div id="status">Starting 3D engine…</div>
+</header>
+
+<main>
+ <section id="viewer">
+  <div class="hud">HOLOGRAPHIC LAB<br><span id="modelName">ENERGY CORE</span><br><span id="fps">3D VIEW ACTIVE</span></div>
+  <div id="hint">Drag to rotate · Pinch or use buttons to zoom</div>
+  <div id="cameraPanel"><video id="camera" autoplay muted playsinline></video><div id="camLabel">HAND CAMERA</div></div>
+ </section>
+
+ <aside class="side">
+  <div class="controls">
+   <select id="gallery" aria-label="Choose 3D model">
+    <option value="reactor">Arc Energy Core</option>
+    <option value="solar">Solar System</option>
+    <option value="atom">Atomic Model</option>
+    <option value="planet">Holographic Planet</option>
+    <option value="robot">Robot Core</option>
+   </select>
+   <button id="handBtn" class="primary">✋ Start Hand Control</button>
+   <button id="zoomIn">＋ Zoom In</button>
+   <button id="zoomOut">－ Zoom Out</button>
+   <button id="reset">⟳ Reset View</button>
+   <button id="rotateBtn">⟳ Auto Rotate: ON</button>
+   <label class="uploadLabel" for="file">＋ Upload .GLB / .GLTF</label>
+   <input id="file" type="file" accept=".glb,.gltf,.bin,.png,.jpg,.jpeg,.webp">
+   <button id="full">⛶ Full Screen</button>
+  </div>
+  <div id="help">
+   <b>GESTURE GUIDE</b><br>
+   • Open palm: rotate the model<br>
+   • Pinch fingers: move and zoom<br>
+   • Drag on screen: rotate<br>
+   • Two fingers: touch zoom<br>
+   • Upload your own 3D project<br>
+   Camera works on HTTPS sites such as GitHub Pages.
+  </div>
+ </aside>
+</main>
+
+<script type="importmap">
+{
+ "imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+ }
+}
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js"></script>
+
+<script type="module">
+import * as THREE from "three";
+import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
+
+const $=id=>document.getElementById(id);
+const viewer=$("viewer");
+const status=$("status");
+const scene=new THREE.Scene();
+scene.fog=new THREE.FogExp2(0x020817,0.035);
+
+const camera3D=new THREE.PerspectiveCamera(45,1,.1,1000);
+camera3D.position.set(0,0,10);
+
+let renderer;
+try{
+ renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:"high-performance"});
+ renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.7));
+ renderer.setSize(viewer.clientWidth,viewer.clientHeight);
+ renderer.outputColorSpace=THREE.SRGBColorSpace;
+ renderer.toneMapping=THREE.ACESFilmicToneMapping;
+ renderer.toneMappingExposure=1.35;
+ viewer.prepend(renderer.domElement);
+}catch(e){
+ status.textContent="3D graphics unavailable";
+ throw e;
+}
+
+scene.add(new THREE.AmbientLight(0x72cfff,2.2));
+const light=new THREE.PointLight(0x00cfff,100);
+light.position.set(3,4,5);scene.add(light);
+const pink=new THREE.PointLight(0x7a35ff,70);
+pink.position.set(-4,-2,2);scene.add(pink);
+
+const grid=new THREE.GridHelper(30,40,0x087eaa,0x07334b);
+grid.position.y=-2.4;scene.add(grid);
+
+const root=new THREE.Group();scene.add(root);
+let currentModel=null, autoRotate=true, handOn=false, hands=null, stream=null;
+let lastHand=null,lastPinch=null,handBusy=false;
+const loader=new GLTFLoader();
+
+function material(color,emissive=color,metalness=.65,roughness=.25){
+ return new THREE.MeshStandardMaterial({
+  color,emissive,emissiveIntensity:.65,metalness,roughness
+ });
+}
+function mesh(geo,mat,x=0,y=0,z=0,parent=root){
+ const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);parent.add(m);return m;
+}
+function clearModel(){
+ while(root.children.length){
+  const obj=root.children[0];root.remove(obj);
+  obj.traverse?.(n=>{
+   if(n.geometry)n.geometry.dispose();
+   if(n.material){
+    for(const m of (Array.isArray(n.material)?n.material:[n.material]))m.dispose();
+   }
+  });
+ }
+ currentModel=null;
+}
+function ring(r,t,color,x=0,y=0,z=0,rx=0,ry=0){
+ const m=mesh(new THREE.TorusGeometry(r,t,12,100),material(color),x,y,z);
+ m.rotation.set(rx,ry,0);return m;
+}
+function sphere(r,color,x=0,y=0,z=0){
+ return mesh(new THREE.SphereGeometry(r,32,24),material(color),x,y,z);
+}
+function buildModel(type){
+ clearModel();
+ const blue=0x00cfff, cyan=0x6bffff, violet=0x873dff;
+ if(type==="reactor"){
+  sphere(1.05,0x073c65);
+  sphere(.68,0x00aaff,0,0,.12);
+  sphere(.35,0x9afaff,0,0,.2);
+  for(let i=0;i<3;i++){
+   const r=ring(1.3,.075,i===1?violet:blue,0,0,0);
+   r.rotation.set(i*.7,i*1.0,0);
+  }
+  for(let i=0;i<8;i++){
+   const a=i*Math.PI/4;
+   const p=mesh(new THREE.BoxGeometry(.16,.48,.18),material(cyan),Math.cos(a)*1.5,Math.sin(a)*1.5,0);
+   p.rotation.z=a;
+  }
+ }else if(type==="solar"){
+  sphere(.48,0xffbd42);
+  const colors=[0x4abaff,0xff8055,0x70ddff,0xb28aff,0xffd16d,0x6ed9c7];
+  const radii=[.12,.18,.24,.3,.43,.53];
+  radii.forEach((r,i)=>{
+   ring(.8+i*.48,.009,0x176a99);
+   const a=i*1.1;
+   const p=sphere(r,colors[i],Math.cos(a)*(1.15+i*.53),0,Math.sin(a)*(1.15+i*.53));
+   p.userData.orbit={r:1.15+i*.53,a,speed:.35/(i+1)};
+  });
+ }else if(type==="atom"){
+  sphere(.32,0xff4f91);
+  for(let i=0;i<3;i++){
+   const r=ring(1.4,.035,[blue,violet,0xff5eaa][i]);
+   r.rotation.set(i*.9,i*1.1,i*.7);
+   for(let j=0;j<2;j++){
+    const a=j*Math.PI;
+    sphere(.13,cyan,Math.cos(a)*1.4,Math.sin(a)*1.4,0);
+   }
+  }
+ }else if(type==="planet"){
+  sphere(1.35,0x1260a4);
+  ring(1.8,.09,0x52eaff,0,0,0,.35,.2);
+  ring(2,.025,violet,0,0,0,.35,.2);
+  for(let i=0;i<12;i++){
+   const a=i*Math.PI/6;
+   sphere(.045,cyan,Math.cos(a)*1.43,Math.sin(a)*.65,Math.sin(a)*1.1);
+  }
+ }else if(type==="robot"){
+  mesh(new THREE.BoxGeometry(1.3,1.3,.8),material(0x14658b),0,.3,0);
+  const eyeMat=material(0x7fffff);
+  mesh(new THREE.SphereGeometry(.14,16,12),eyeMat,-.3,.45,.43);
+  mesh(new THREE.SphereGeometry(.14,16,12),eyeMat,.3,.45,.43);
+  mesh(new THREE.BoxGeometry(.6,.09,.08),material(0x00cfff),0,.02,.46);
+  mesh(new THREE.CylinderGeometry(.4,.6,.28,24),material(0x254a79),0,-.65,0);
+  ring(.8,.055,0x00cfff,0,-.8,0);
+  for(let i=0;i<4;i++){
+   const side=i<2?-1:1, y=i%2?.65:-.4;
+   const arm=mesh(new THREE.BoxGeometry(.28,.9,.3),material(0x16638b),side*.85,y,0);
+   arm.rotation.z=side*.2;
+  }
+ }
+ currentModel=root;
+ root.scale.setScalar(1);
+ root.position.set(0,0,0);
+ root.rotation.set(0,0,0);
+ $("modelName").textContent=type.toUpperCase();
+}
+buildModel("reactor");
+status.textContent="3D engine ready";
+
+function resize(){
+ const w=viewer.clientWidth,h=viewer.clientHeight;
+ if(!w||!h)return;
+ camera3D.aspect=w/h;camera3D.updateProjectionMatrix();
+ renderer.setSize(w,h);
+}
+new ResizeObserver(resize).observe(viewer);
+window.addEventListener("orientationchange",()=>setTimeout(resize,250));
+
+let dragging=false,px=0,py=0;
+renderer.domElement.addEventListener("pointerdown",e=>{
+ dragging=true;px=e.clientX;py=e.clientY;
+ renderer.domElement.setPointerCapture(e.pointerId);
+});
+renderer.domElement.addEventListener("pointermove",e=>{
+ if(!dragging)return;
+ const dx=e.clientX-px,dy=e.clientY-py;
+ root.rotation.y+=dx*.009;root.rotation.x+=dy*.009;
+ px=e.clientX;py=e.clientY;
+});
+function endDrag(){dragging=false}
+renderer.domElement.addEventListener("pointerup",endDrag);
+renderer.domElement.addEventListener("pointercancel",endDrag);
+renderer.domElement.addEventListener("wheel",e=>{
+ camera3D.position.z=THREE.MathUtils.clamp(camera3D.position.z+e.deltaY*.01,3,18);
+},{passive:true});
+
+$("gallery").addEventListener("change",e=>buildModel(e.target.value));
+$("zoomIn").onclick=()=>camera3D.position.z=Math.max(3,camera3D.position.z-.7);
+$("zoomOut").onclick=()=>camera3D.position.z=Math.min(18,camera3D.position.z+.7);
+$("reset").onclick=()=>{
+ root.position.set(0,0,0);root.rotation.set(0,0,0);root.scale.setScalar(1);
+ camera3D.position.set(0,0,10);
+};
+$("rotateBtn").onclick=()=>{
+ autoRotate=!autoRotate;
+ $("rotateBtn").textContent="⟳ Auto Rotate: "+(autoRotate?"ON":"OFF");
+};
+$("full").onclick=async()=>{
+ try{
+  if(!document.fullscreenElement)await document.documentElement.requestFullscreen();
+  else await document.exitFullscreen();
+ }catch(e){status.textContent="Fullscreen not supported here";}
+};
+
+$("file").addEventListener("change",e=>{
+ const file=e.target.files[0];if(!file)return;
+ if(!/\.(glb|gltf)$/i.test(file.name)){
+  status.textContent="Choose a .glb or .gltf file";return;
+ }
+ status.textContent="Loading "+file.name+"…";
+ const url=URL.createObjectURL(file);
+ loader.load(url,gltf=>{
+  clearModel();
+  root.add(gltf.scene);currentModel=gltf.scene;
+  const box=new THREE.Box3().setFromObject(root);
+  const size=box.getSize(new THREE.Vector3());
+  const center=box.getCenter(new THREE.Vector3());
+  gltf.scene.position.sub(center);
+  const max=Math.max(size.x,size.y,size.z)||1;
+  root.scale.setScalar(3.2/max);
+  root.position.set(0,0,0);
+  $("modelName").textContent=file.name.toUpperCase();
+  status.textContent="Model loaded";
+  URL.revokeObjectURL(url);
+ },xhr=>{
+  if(xhr.total)status.textContent="Loading "+Math.round(xhr.loaded/xhr.total*100)+"%";
+ },err=>{
+  console.error(err);
+  status.textContent="Model failed to load. Check file and dependencies.";
+  URL.revokeObjectURL(url);
+ });
+});
+
+// MediaPipe hand tracking
+async function startHands(){
+ if(handOn){stopHands();return}
+ if(!navigator.mediaDevices?.getUserMedia){
+  status.textContent="Camera requires HTTPS and browser permission";return;
+ }
+ if(!window.Hands){
+  status.textContent="Hand tracking library failed to load. Check internet.";
+  return;
+ }
+ $("handBtn").disabled=true;
+ status.textContent="Requesting camera…";
+ try{
+  stream=await navigator.mediaDevices.getUserMedia({
+   video:{facingMode:"user",width:{ideal:640},height:{ideal:480}},
+   audio:false
+  });
+  const video=$("camera");video.srcObject=stream;
+  await video.play();
+  $("cameraPanel").style.display="block";
+
+  hands=new window.Hands({
+   locateFile:file=>"https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/"+file
+  });
+  hands.setOptions({
+   maxNumHands:2,modelComplexity:1,
+   minDetectionConfidence:.65,minTrackingConfidence:.6
+  });
+  hands.onResults(onHandResults);
+  handOn=true;lastHand=null;lastPinch=null;
+  $("handBtn").textContent="✋ Stop Hand Control";
+  status.textContent="Hand control active";
+  handBusy=false;
+  sendHandFrame();
+ }catch(err){
+  console.error(err);
+  status.textContent="Camera error: allow camera permission and retry";
+  stopHands();
+ }
+ $("handBtn").disabled=false;
+}
+async function sendHandFrame(){
+ if(!handOn||!hands)return;
+ if(!handBusy&&$("camera").readyState>=2){
+  handBusy=true;
+  try{await hands.send({image:$("camera")})}
+  catch(e){console.warn("Hand tracking frame failed",e)}
+  handBusy=false;
+ }
+ if(handOn)requestAnimationFrame(sendHandFrame);
+}
+function onHandResults(results){
+ const list=results.multiHandLandmarks;
+ if(!list||!list.length){
+  lastHand=null;lastPinch=null;
+  $("camLabel").textContent="NO HAND";
+  return;
+ }
+ $("camLabel").textContent=list.length+" HAND"+(list.length>1?"S":"");
+ const lm=list[0];
+ const palm={x:(lm[0].x+lm[5].x+lm[9].x+lm[13].x+lm[17].x)/5,
+             y:(lm[0].y+lm[5].y+lm[9].y+lm[13].y+lm[17].y)/5};
+ const dx=lm[4].x-lm[8].x,dy=lm[4].y-lm[8].y;
+ const pinch=Math.hypot(dx,dy);
+ const isPinch=pinch<.12;
+
+ if(lastHand){
+  const mx=palm.x-lastHand.x,my=palm.y-lastHand.y;
+  if(isPinch){
+   // Pinch: move the model with the hand.
+   root.position.x=THREE.MathUtils.clamp(root.position.x-mx*7,-3,3);
+   root.position.y=THREE.MathUtils.clamp(root.position.y+my*7,-3,3);
+   // Pinch gap controls zoom.
+   if(lastPinch!==null){
+    const delta=pinch-lastPinch;
+    camera3D.position.z=THREE.MathUtils.clamp(camera3D.position.z-delta*18,3,18);
+   }
+  }else{
+   // Open hand: rotate.
+   root.rotation.y-=mx*5;
+   root.rotation.x+=my*5;
+  }
+ }
+ lastHand=palm;
+ lastPinch=isPinch?pinch:null;
+
+ // Two hands: distance between palms controls zoom.
+ if(list.length>=2){
+  const b=list[1];
+  const p2={x:(b[0].x+b[5].x+b[9].x+b[13].x+b[17].x)/5,
+           y:(b[0].y+b[5].y+b[9].y+b[13].y+b[17].y)/5};
+  const d=Math.hypot(palm.x-p2.x,palm.y-p2.y);
+  if(onHandResults.lastD!==undefined){
+   camera3D.position.z=THREE.MathUtils.clamp(
+    camera3D.position.z-(d-onHandResults.lastD)*12,3,18);
+  }
+  onHandResults.lastD=d;
+ }else onHandResults.lastD=undefined;
+}
+function stopHands(){
+ handOn=false;handBusy=false;lastHand=null;lastPinch=null;
+ if(stream)stream.getTracks().forEach(t=>t.stop());
+ stream=null;hands?.close?.();hands=null;
+ $("camera").srcObject=null;
+ $("cameraPanel").style.display="none";
+ $("handBtn").textContent="✋ Start Hand Control";
+ status.textContent="3D engine ready";
+}
+$("handBtn").addEventListener("click",startHands);
+
+let previous=0;
+function animate(time){
+ requestAnimationFrame(animate);
+ const dt=Math.min((time-previous)/1000,.05)||0;previous=time;
+ if(autoRotate&&!dragging&&!handOn)root.rotation.y+=dt*.22;
+ root.traverse(obj=>{
+  if(obj.userData.orbit){
+   const o=obj.userData.orbit;o.a+=dt*o.speed;
+   obj.position.x=Math.cos(o.a)*o.r;
+   obj.position.z=Math.sin(o.a)*o.r;
+  }
+ });
+ grid.position.z=(time*.0004)%1;
+ renderer.render(scene,camera3D);
+}
+requestAnimationFrame(animate);
+
+window.addEventListener("beforeunload",()=>{
+ stopHands();
+ renderer.dispose();
+});
+</script>
+</body>
+  </html>
+   
