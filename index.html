@@ -1,0 +1,519 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#030914">
+<title>HoloModel | J.A.R.V.I.S. 3D Lab</title>
+<style>
+:root{--bg:#030914;--panel:#071729;--cyan:#19d9ff;--blue:#1686ff;--orange:#ff8a35;--text:#e4f7ff;--muted:#8caec7;--line:#174d70}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font:14px Arial,sans-serif}
+body{overflow:auto}
+button,input{font:inherit}
+button{background:#0a2540;color:var(--text);border:1px solid #17668b;border-radius:8px;padding:9px 10px;cursor:pointer;touch-action:manipulation}
+button.active,button:active{border-color:var(--cyan);background:#07537a}
+button:disabled{opacity:.5}
+header{height:57px;display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:#051221;border-bottom:1px solid var(--line)}
+.logo{font-size:19px;font-weight:bold;color:var(--cyan)}
+.logo small{display:block;font-size:9px;color:var(--muted);letter-spacing:2px;margin-top:3px}
+#status{font-size:11px;color:#50ffbc;text-align:right}
+.layout{display:grid;grid-template-columns:175px minmax(0,1fr) 195px;gap:8px;padding:8px;min-height:calc(100dvh - 57px)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px;min-width:0}
+h3{font-size:12px;color:var(--cyan);margin:4px 0 10px}
+.muted{font-size:11px;color:var(--muted);line-height:1.5}
+.library button{width:100%;text-align:left;margin-bottom:6px;font-size:12px}
+.center{display:flex;flex-direction:column;gap:7px;min-width:0;min-height:440px}
+.toolbar{display:flex;flex-wrap:wrap;gap:5px;padding:6px;background:var(--panel);border:1px solid var(--line);border-radius:9px}
+.toolbar button{font-size:11px;padding:8px}
+#stage{position:relative;flex:1;min-height:310px;overflow:hidden;border:1px solid #14577b;border-radius:12px;background:radial-gradient(ellipse at center,#092647,#030914 75%);touch-action:none}
+#stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#stageTitle{position:absolute;top:10px;left:10px;font-size:14px;font-weight:bold;color:#c7f8ff;text-shadow:0 0 12px #00bfff;pointer-events:none}
+#stageInfo{position:absolute;bottom:9px;left:9px;max-width:90%;font-size:11px;padding:7px;background:#031322df;border:1px solid #126184;border-radius:7px;pointer-events:none}
+#loading{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;background:#030914ef;text-align:center;padding:18px;color:var(--cyan)}
+#loadingMsg{color:var(--muted);font-size:11px;line-height:1.5;overflow-wrap:anywhere}
+.spinner{width:30px;height:30px;border:3px solid #12354b;border-top-color:var(--cyan);border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.infoBox{padding:9px;margin-bottom:8px;border:1px solid #15435f;background:#04101e;border-radius:8px}
+.infoBox b{color:var(--cyan)}
+#partDesc,#jarvisText{font-size:11px;line-height:1.5;overflow-wrap:anywhere}
+#handStatus{font-size:11px;color:var(--orange);line-height:1.5;margin:7px 0}
+#cameraPreview{width:100%;height:100px;object-fit:cover;transform:scaleX(-1);display:none;background:#020812;border-radius:7px}
+#chatInput{width:100%;padding:9px;background:#03101d;color:white;border:1px solid var(--line);border-radius:7px}
+.rightPanel .controls{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.rightPanel .controls button{font-size:11px;padding:8px 4px}
+footer{text-align:center;color:var(--muted);font-size:10px;padding:8px}
+@media(max-width:760px){
+ .layout{grid-template-columns:minmax(0,1fr);padding:6px;gap:7px}
+ .leftPanel{order:2}
+ .center{order:1;min-height:0}
+ #stage{min-height:44dvh;height:44dvh;flex:none}
+ .rightPanel{order:3}
+ .leftPanel .modelList{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+ .library button{margin:0}
+ .toolbar button{padding:8px 9px}
+}
+</style>
+</head>
+<body>
+<header>
+ <div class="logo">⬡ HoloModel<small>J.A.R.V.I.S. • 3D LAB</small></div>
+ <div id="status">● Starting lab</div>
+</header>
+
+<div class="layout">
+<aside class="panel library leftPanel">
+ <h3>MODEL LIBRARY</h3>
+ <p class="muted">Select a holographic model</p>
+ <div class="modelList">
+ <button data-model="reactor">⚡ Arc Reactor</button>
+ <button data-model="robot">🤖 Robot Core</button>
+ <button data-model="jet">✈ Jet Engine</button>
+ <button data-model="earth">🌍 Digital Earth</button>
+ <button data-model="dna">🧬 DNA Helix</button>
+ </div>
+ <div class="infoBox">
+  <b>Controls</b>
+  <p class="muted">Drag: rotate<br>Two fingers: zoom<br>Hand: move / pinch<br>Tap a part: information</p>
+ </div>
+</aside>
+
+<main class="center">
+ <div class="toolbar">
+  <button id="rotateBtn" class="active">⟳ Rotate</button>
+  <button id="explodeBtn">Explode</button>
+  <button id="wireBtn">Wireframe</button>
+  <button id="xrayBtn">X-Ray</button>
+  <button id="resetBtn">Reset</button>
+ </div>
+ <div id="stage">
+  <div id="loading">
+   <div class="spinner" id="spinner"></div>
+   <b id="loadingTitle">Initializing 3D Lab…</b>
+   <div id="loadingMsg">Connecting to the 3D engine…</div>
+   <button id="retryBtn" hidden>Retry 3D engine</button>
+  </div>
+  <div id="stageTitle">ARC REACTOR MK-III</div>
+  <div id="stageInfo">Drag to rotate • Tap a component for information</div>
+ </div>
+ <div class="toolbar">
+  <button id="zoomIn">＋ Zoom</button>
+  <button id="zoomOut">－ Zoom</button>
+  <button id="handBtn">✋ Start Hand Tracking</button>
+  <button id="voiceBtn">🔊 Explain Model</button>
+ </div>
+</main>
+
+<aside class="panel rightPanel">
+ <h3>J.A.R.V.I.S. SYSTEM</h3>
+ <div class="infoBox">
+  <b id="partName">Arc Reactor</b>
+  <p id="partDesc">Select a component to learn about it.</p>
+ </div>
+ <div class="infoBox">
+  <b>AI Guide</b>
+  <p id="jarvisText">Hello! I am J.A.R.V.I.S. Choose a model to begin.</p>
+  <div class="controls">
+   <button id="allBtn">Explain All</button>
+   <button id="stopVoice">Stop Voice</button>
+  </div>
+ </div>
+ <div class="infoBox">
+  <b>Hand Tracking</b>
+  <div id="handStatus">Not started. Camera permission is required.</div>
+  <video id="cameraPreview" autoplay playsinline muted></video>
+ </div>
+ <input id="chatInput" placeholder="Ask JARVIS about a model">
+ <button id="askBtn" style="width:100%;margin-top:6px">Ask J.A.R.V.I.S.</button>
+</aside>
+</div>
+<footer>Three.js • Mobile 3D • Gesture Controls • J.A.R.V.I.S.</footer>
+
+<script type="module">
+const $=id=>document.getElementById(id);
+const stage=$("stage");
+let THREE,scene,camera,renderer,root,modelGroup,raycaster,pointer;
+let currentModel="reactor",autoRotate=true,wire=false,xray=false,exploded=false;
+let distance=7.5,dragging=false,lastX=0,lastY=0,downX=0,downY=0,moved=false;
+let handEnabled=false,handStream=null,handLandmarker=null,handRaf=0;
+let lastVideoTime=-1,previousPalm=null,previousPinch=null;
+let lastFrame=0;
+
+const names={
+ reactor:"ARC REACTOR MK-III",
+ robot:"ROBOT CORE",
+ jet:"JET ENGINE",
+ earth:"DIGITAL EARTH",
+ dna:"DNA HELIX"
+};
+const descriptions={
+ "Power Core":"Glowing central core in this fictional science-fiction visualization. It does not represent a real unlimited-energy source.",
+ "Outer Ring":"Concentric structural rings give the assembly its layered mechanical design.",
+ "Copper Coil":"Copper-colored winding representing a conceptual electromagnetic component.",
+ "Cooling Ring":"A conceptual cooling and support ring.",
+ "Robot Joint":"A mechanical joint concept that connects robotic sections.",
+ "Robot Arm":"A simplified robotic arm segment.",
+ "Jet Housing":"Outer casing of a conceptual jet engine.",
+ "Turbine Blade":"Turbine blades help move air through an engine.",
+ "Digital Earth":"A stylized digital globe; this demo has no live satellite data.",
+ "DNA Strand":"A simplified educational DNA double helix."
+};
+
+function status(s,color="#50ffbc"){
+ $("status").textContent="● "+s;
+ $("status").style.color=color;
+}
+function showError(title,msg){
+ $("loading").style.display="flex";
+ $("spinner").style.display="none";
+ $("loadingTitle").textContent=title;
+ $("loadingMsg").textContent=msg;
+ $("retryBtn").hidden=false;
+ status("3D load error","#ff8a35");
+}
+function material(color,emissive=color,metalness=.65){
+ return new THREE.MeshStandardMaterial({
+  color,emissive,emissiveIntensity:.32,metalness,roughness:.3
+ });
+}
+function add(geo,color,name,pos=[0,0,0],emissive=color){
+ const m=new THREE.Mesh(geo,material(color,emissive));
+ m.name=name;
+ m.position.set(...pos);
+ modelGroup.add(m);
+ return m;
+}
+function ring(r,t,z,color,name){
+ return add(new THREE.TorusGeometry(r,t,8,56),color,name,[0,0,z],color);
+}
+function ball(r,color,name,pos=[0,0,0]){
+ return add(new THREE.SphereGeometry(r,24,20),color,name,pos,color);
+}
+function block(x,y,z,color,name,pos){
+ return add(new THREE.BoxGeometry(x,y,z),color,name,pos,color);
+}
+function cylinder(r,h,z,color,name){
+ return add(new THREE.CylinderGeometry(r,r,h,40),color,name,[0,0,z],color);
+}
+function clearModel(){
+ while(modelGroup.children.length){
+  const o=modelGroup.children.pop();
+  o.geometry?.dispose();
+  if(Array.isArray(o.material))o.material.forEach(m=>m.dispose());
+  else o.material?.dispose();
+ }
+ exploded=false;
+ $("explodeBtn").classList.remove("active");
+}
+function reactor(){
+ ring(1.35,.11,0,0x506d8c,"Outer Ring");
+ ring(1.17,.055,.06,0x1686ff,"Cooling Ring");
+ ring(1.02,.085,.12,0x9aafc4,"Outer Ring");
+ ring(.86,.045,.18,0xff8735,"Copper Coil");
+ ring(.70,.065,.24,0x287bb5,"Outer Ring");
+ ring(.54,.04,.30,0xffa04a,"Copper Coil");
+ ring(.38,.055,.36,0x20dfff,"Power Core");
+ cylinder(.53,.13,.02,0x1c344b,"Outer Ring");
+ ball(.28,0x19d9ff,"Power Core",[0,0,.42]);
+ for(let i=0;i<12;i++){
+  const a=i*Math.PI/6,r=1.22;
+  const b=block(.17,.09,.12,i%3?0x65839f:0xff8735,
+   "Outer Ring",[Math.cos(a)*r,Math.sin(a)*r,.04]);
+  b.rotation.z=a;
+ }
+ for(let i=0;i<16;i++){
+  const a=i*Math.PI/8,r=.82;
+  const b=block(.09,.16,.09,0xff8735,"Copper Coil",
+   [Math.cos(a)*r,Math.sin(a)*r,.24]);
+  b.rotation.z=a;
+ }
+ for(let i=0;i<12;i++){
+  const a=i*Math.PI/6,r=.60;
+  const b=block(.07,.17,.07,0x28cfff,"Cooling Ring",
+   [Math.cos(a)*r,Math.sin(a)*r,.34]);
+  b.rotation.z=a;
+ }
+}
+function robot(){
+ ball(.59,0x344c65,"Robot Joint");
+ ring(.77,.07,.03,0x19d9ff,"Outer Ring");
+ ring(.92,.045,-.04,0xff8735,"Outer Ring");
+ ball(.34,0x087db5,"Power Core",[0,0,.25]);
+ ball(.17,0x75edff,"Power Core",[0,0,.45]);
+ for(let i=0;i<8;i++){
+  const a=i*Math.PI/4,x=Math.cos(a),y=Math.sin(a);
+  ball(.12,0xa1b5c8,"Robot Joint",[x*.98,y*.98,0]);
+  const arm=block(.48,.12,.13,0x536c87,"Robot Arm",
+   [x*.73,y*.73,0]);
+  arm.rotation.z=a;
+ }
+}
+function jet(){
+ cylinder(.91,.28,0,0x354c63,"Jet Housing");
+ ring(.98,.085,.16,0xa2b8c9,"Outer Ring");
+ ring(.78,.055,.19,0xff8735,"Cooling Ring");
+ ring(.58,.045,.22,0x19d9ff,"Outer Ring");
+ cylinder(.55,.17,.23,0x102b41,"Jet Housing");
+ ball(.20,0x19bfff,"Power Core",[0,0,.36]);
+ for(let i=0;i<14;i++){
+  const a=i*Math.PI/7;
+  const b=block(.42,.075,.06,i%3?0x8ca8c0:0xff8735,
+   "Turbine Blade",[Math.cos(a)*.39,Math.sin(a)*.39,.30]);
+  b.rotation.z=a+.35;
+ }
+}
+function earth(){
+ ball(1.08,0x10528b,"Digital Earth");
+ for(let i=1;i<=6;i++){
+  const r=1.08*i/7;
+  ring(r,.008,Math.sqrt(Math.max(0,1.08*1.08-r*r))*.5,
+   0x20caff,"Digital Earth");
+ }
+ for(let i=0;i<6;i++){
+  const m=add(new THREE.TorusGeometry(1.1,.009,5,64),
+   0x20caff,"Digital Earth");
+  m.rotation.y=i*Math.PI/6;
+ }
+ ring(1.24,.018,0,0xff8735,"Outer Ring");
+}
+function dna(){
+ const a=[],b=[];
+ for(let i=0;i<=140;i++){
+  const t=i/140*Math.PI*8,z=(i/140-.5)*3.1;
+  a.push(new THREE.Vector3(Math.cos(t)*.52,Math.sin(t)*.52,z));
+  b.push(new THREE.Vector3(-Math.cos(t)*.52,-Math.sin(t)*.52,z));
+ }
+ add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(a),180,.04,7),
+  0x19d9ff,"DNA Strand");
+ add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(b),180,.04,7),
+  0xff8735,"DNA Strand");
+ for(let i=0;i<25;i++){
+  const t=i/25*Math.PI*8,z=(i/25-.5)*3.1;
+  const bar=block(.76,.025,.03,0xa2eaff,"DNA Strand",[0,0,z]);
+  bar.rotation.z=t;
+ }
+}
+const builders={reactor,robot,jet,earth,dna};
+
+function loadModel(key){
+ if(!builders[key]||!root)return;
+ currentModel=key;
+ clearModel();
+ builders[key]();
+ $("stageTitle").textContent=names[key];
+ $("stageInfo").textContent="Drag to rotate • Two fingers to zoom • Tap a part";
+ $("partName").textContent=names[key];
+ $("partDesc").textContent="Select a component to learn more.";
+ $("jarvisText").textContent=names[key]+" loaded. Tap a component or ask me a question.";
+ distance=key==="dna"?6.1:7.1;
+ camera.position.set(0,0,distance);
+ root.rotation.set(0,0,0);
+ applyModes();
+ document.querySelectorAll("[data-model]").forEach(b=>
+  b.classList.toggle("active",b.dataset.model===key));
+}
+function applyModes(){
+ if(!modelGroup)return;
+ modelGroup.traverse(o=>{
+  if(!o.isMesh)return;
+  o.material.wireframe=wire;
+  o.material.transparent=xray;
+  o.material.opacity=xray?.3:1;
+  o.material.depthWrite=!xray;
+  o.material.needsUpdate=true;
+ });
+}
+function resize(){
+ if(!renderer||!camera)return;
+ const w=stage.clientWidth,h=stage.clientHeight;
+ if(!w||!h)return;
+ camera.aspect=w/h;
+ camera.updateProjectionMatrix();
+ renderer.setSize(w,h,false);
+}
+function setZoom(n){
+ distance=THREE.MathUtils.clamp(n,3,12);
+ camera.position.setLength(distance);
+}
+function selectPart(name){
+ const text=descriptions[name]||"A component of this conceptual 3D model.";
+ $("partName").textContent=name;
+ $("partDesc").textContent=text;
+ $("jarvisText").textContent=name+": "+text;
+ $("stageInfo").textContent=name+" • "+text;
+}
+function installPointer(){
+ const c=renderer.domElement;
+ c.addEventListener("pointerdown",e=>{
+  if(handEnabled)return;
+  dragging=true;
+  lastX=downX=e.clientX;
+  lastY=downY=e.clientY;
+  moved=false;
+  try{c.setPointerCapture(e.pointerId)}catch{}
+ });
+ c.addEventListener("pointermove",e=>{
+  if(!dragging||handEnabled)return;
+  const dx=e.clientX-lastX,dy=e.clientY-lastY;
+  if(Math.abs(e.clientX-downX)+Math.abs(e.clientY-downY)>5)moved=true;
+  root.rotation.y+=dx*.008;
+  root.rotation.x+=dy*.008;
+  lastX=e.clientX;lastY=e.clientY;
+ });
+ function end(e){
+  if(!dragging)return;
+  dragging=false;
+  if(moved)return;
+  const r=c.getBoundingClientRect();
+  pointer.x=(e.clientX-r.left)/r.width*2-1;
+  pointer.y=-((e.clientY-r.top)/r.height)*2+1;
+  raycaster.setFromCamera(pointer,camera);
+  const hits=raycaster.intersectObjects(modelGroup.children,true);
+  if(hits.length)selectPart(hits[0].object.name||"Model Component");
+ }
+ c.addEventListener("pointerup",end);
+ c.addEventListener("pointercancel",()=>dragging=false);
+ let pinchStart=0,zoomStart=distance;
+ c.addEventListener("touchstart",e=>{
+  if(e.touches.length===2){
+   pinchStart=Math.hypot(
+    e.touches[0].clientX-e.touches[1].clientX,
+    e.touches[0].clientY-e.touches[1].clientY);
+   zoomStart=distance;
+  }
+ },{passive:true});
+ c.addEventListener("touchmove",e=>{
+  if(e.touches.length===2&&pinchStart>0){
+   const d=Math.hypot(
+    e.touches[0].clientX-e.touches[1].clientX,
+    e.touches[0].clientY-e.touches[1].clientY);
+   setZoom(zoomStart*pinchStart/Math.max(1,d));
+  }
+ },{passive:true});
+ c.addEventListener("touchend",e=>{
+  if(e.touches.length<2)pinchStart=0;
+ },{passive:true});
+}
+function animate(t){
+ requestAnimationFrame(animate);
+ if(!renderer)return;
+ if(t-lastFrame<16)return;
+ lastFrame=t;
+ if(autoRotate&&!dragging&&!handEnabled)root.rotation.y+=.003;
+ modelGroup.children.forEach(o=>{
+  if(o.userData.targetPosition)
+   o.position.lerp(o.userData.targetPosition,.12);
+ });
+ renderer.render(scene,camera);
+}
+async function init(){
+ $("retryBtn").hidden=true;
+ $("spinner").style.display="block";
+ $("loadingTitle").textContent="Initializing 3D Lab…";
+ $("loadingMsg").textContent="Loading Three.js engine…";
+ try{
+  if(!window.WebGLRenderingContext)throw Error("WebGL is not supported by this browser.");
+  THREE=await import("https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js");
+  scene=new THREE.Scene();
+  scene.fog=new THREE.FogExp2(0x030914,.025);
+  camera=new THREE.PerspectiveCamera(42,1,.1,100);
+  camera.position.set(0,0,distance);
+  renderer=new THREE.WebGLRenderer({
+   antialias:false,alpha:true,powerPreference:"high-performance"
+  });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.35));
+  renderer.outputColorSpace=THREE.SRGBColorSpace;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.2;
+  renderer.domElement.style.zIndex="0";
+  stage.insertBefore(renderer.domElement,$("stageTitle"));
+  scene.add(new THREE.HemisphereLight(0x9deeff,0x10152b,2));
+  const key=new THREE.DirectionalLight(0xffffff,2.5);
+  key.position.set(3,4,5);scene.add(key);
+  const blue=new THREE.PointLight(0x00cfff,18,15);
+  blue.position.set(-3,1,3);scene.add(blue);
+  const warm=new THREE.PointLight(0xff772b,10,12);
+  warm.position.set(3,-2,2);scene.add(warm);
+  root=new THREE.Group();scene.add(root);
+  modelGroup=new THREE.Group();root.add(modelGroup);
+  raycaster=new THREE.Raycaster();pointer=new THREE.Vector2();
+  installPointer();
+  loadModel("reactor");
+  resize();
+  if(window.ResizeObserver)new ResizeObserver(resize).observe(stage);
+  window.addEventListener("resize",resize);
+  window.addEventListener("orientationchange",()=>setTimeout(resize,250));
+  $("loading").style.display="none";
+  status("3D ENGINE READY");
+  animate(0);
+ }catch(e){
+  console.error("3D engine error:",e);
+  showError("3D ENGINE FAILED",
+   (e.message||"Unknown error")+
+   ". Internet check karein. Retry dabayein. Agar fail ho, Chrome WebGL support check karein.");
+ }
+}
+$("retryBtn").onclick=()=>{
+ $("loading").style.display="flex";
+ init();
+};
+document.querySelectorAll("[data-model]").forEach(b=>
+ b.addEventListener("click",()=>loadModel(b.dataset.model)));
+$("zoomIn").onclick=()=>setZoom(distance-.6);
+$("zoomOut").onclick=()=>setZoom(distance+.6);
+$("rotateBtn").onclick=()=>{
+ autoRotate=!autoRotate;
+ $("rotateBtn").classList.toggle("active",autoRotate);
+};
+$("resetBtn").onclick=()=>{
+ root.rotation.set(0,0,0);
+ distance=7.1;
+ camera.position.set(0,0,distance);
+};
+$("explodeBtn").onclick=()=>{
+ exploded=!exploded;
+ $("explodeBtn").classList.toggle("active",exploded);
+ modelGroup.children.forEach((o,i)=>{
+  if(!o.userData.originalPosition)
+   o.userData.originalPosition=o.position.clone();
+  let d=o.userData.originalPosition.clone();
+  if(d.length()<.1)d.set(Math.sin(i),Math.cos(i),i%2?.6:-.6);
+  d.normalize();
+  o.userData.targetPosition=exploded
+   ?o.userData.originalPosition.clone().add(d.multiplyScalar(.25+(i%3)*.12))
+   :o.userData.originalPosition.clone();
+ });
+};
+$("wireBtn").onclick=()=>{
+ wire=!wire;$("wireBtn").classList.toggle("active",wire);applyModes();
+};
+$("xrayBtn").onclick=()=>{
+ xray=!xray;$("xrayBtn").classList.toggle("active",xray);applyModes();
+};
+
+function speak(text){
+ $("jarvisText").textContent=text;
+ if(!("speechSynthesis"in window))return;
+ speechSynthesis.cancel();
+ const u=new SpeechSynthesisUtterance(text);
+ u.lang="en-IN";u.rate=.94;speechSynthesis.speak(u);
+}
+$("voiceBtn").onclick=()=>speak(
+ names[currentModel]+". This is a conceptual three dimensional model. Tap its components to learn more."
+);
+$("allBtn").onclick=()=>speak(
+ "This model contains: "+[...new Set(modelGroup.children.map(o=>o.name))].join(", ")
+);
+$("stopVoice").onclick=()=>{
+ if("speechSynthesis"in window)speechSynthesis.cancel();
+};
+function answer(q){
+ q=q.toLowerCase();
+ if(q.includes("core")||q.includes("reactor"))return descriptions["Power Core"];
+ if(q.includes("coil"))return descriptions["Copper Coil"];
+ if(q.includes("turbine")||q.includes("engine")||q.includes("blade"))return descriptions["Turbine Blade"];
+ if(q.includes("robot")||q.includes("joint"))return descriptions["Robot Joint"];
+ if(q.includes("earth"))return descriptions["Digital Earth"];
+ if(q.includes("dna"))return descriptions["DNA Strand"];
+ if(q.includes("zoom"))return "Use the Zoom buttons or pinch two finger
