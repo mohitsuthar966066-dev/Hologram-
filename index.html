@@ -1,0 +1,102 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HoloModel 3D Lab</title>
+<style>
+body {
+  margin: 0;
+  background: #030914;
+  color: #59eaff;
+  font-family: Arial, sans-serif;
+  text-align: center;
+}
+header { padding: 18px 8px; }
+h2 { margin: 8px; }
+canvas { display: block; width: 100%; height: 65vh; }
+button {
+  background: #092a40;
+  color: #59eaff;
+  border: 1px solid #59eaff;
+  border-radius: 10px;
+  padding: 12px;
+  margin: 5px;
+}
+p { color: #b5d9e8; font-size: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <h2>HOLOMODEL LAB</h2>
+  <p>Touch and drag to rotate the 3D hologram</p>
+  <button onclick="spin()">Auto Rotate</button>
+  <button onclick="resetView()">Reset View</button>
+</header>
+<script type="module">
+import * as THREE from
+'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
+import { OrbitControls } from
+'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/controls/OrbitControls.js';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x030914);
+
+const camera = new THREE.PerspectiveCamera(
+  65, innerWidth / (innerHeight * 0.65), 0.1, 100
+);
+camera.position.set(0, 0, 5);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight * 0.65);
+document.body.insertBefore(renderer.domElement,
+  document.querySelector('script'));
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.enableZoom = true;
+
+const group = new THREE.Group();
+scene.add(group);
+
+const geometry = new THREE.IcosahedronGeometry(1.3, 2);
+const material = new THREE.MeshBasicMaterial({
+  color: 0x20ddff,
+  wireframe: true
+});
+group.add(new THREE.Mesh(geometry, material));
+
+const ring = new THREE.Mesh(
+  new THREE.TorusGeometry(1.8, 0.018, 8, 120),
+  new THREE.MeshBasicMaterial({ color: 0x2b78ff })
+);
+ring.rotation.x = 1.0;
+group.add(ring);
+
+let auto = true;
+window.spin = () => auto = !auto;
+window.resetView = () => {
+  camera.position.set(0, 0, 5);
+  controls.target.set(0, 0, 0);
+  controls.update();
+};
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (auto) group.rotation.y += 0.004;
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / (innerHeight * 0.65);
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight * 0.65);
+});
+</script>
+</body>
+  </html>
+
