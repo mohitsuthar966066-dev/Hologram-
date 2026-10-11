@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#020b14">
+<title>STARK HOLOGRAM LAB | J.A.R.V.I.S.</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@500;600&display=swap');
+
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --cyan:#00e5ff;
+  --cyan2:#7af8e8;
+  --bg:#020b14;
+  --panel:rgba(5,20,35,0.88);
+  --border:#0d4a65;
+  --text:#d4f6ff;
+  --muted:#6a9eb0;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif}
+body{
+  background-image:
+    radial-gradient(ellipse at 20% 15%,#0a2a4030 0%,transparent 50%),
+    radial-gradient(ellipse at 80% 85%,#041a3028 0%,transparent 50%);
+}
+body::after{
+  content:'';
+  position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,229,255,0.012) 2px,rgba(0,229,255,0.012) 4px);
+  pointer-events:none;z-index:50;
+}
+
+header{
+  height:50px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 14px;background:linear-gradient(180deg,#061824,#030e18);
+  border-bottom:1px solid var(--border);position:relative;z-index:20;
+}
+header::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,#00e5ff77,transparent);
+}
+.logo{font-family:'Orbitron',sans-serif;font-weight:700;font-size:14px;letter-spacing:2.5px;color:var(--cyan);text-shadow:0 0 12px #00e5ff88}
+.logo span{font-size:9px;font-weight:500;color:var(--cyan2);margin-left:5px;opacity:.85}
+.header-right{display:flex;align-items:center;gap:12px}
+.time{font-family:'Orbitron',sans-serif;font-size:11px;color:var(--muted);letter-spacing:1px}
+.status{font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:1px;color:var(--cyan2);display:flex;align-items:center;gap:5px}
+.status-dot{width:6px;height:6px;border-radius:50%;background:var(--cyan2);box-shadow:0 0 7px var(--cyan2);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.75)}}
+
+main{height:calc(100dvh - 50px);position:relative}
+#viewport{position:absolute;inset:0}
+#viewport canvas{display:block;width:100%;height:100%;touch-action:none}
+
+.panel{
+  position:absolute;z-index:10;background:var(--panel);border:1px solid var(--border);
+  border-radius:11px;padding:11px;backdrop-filter:blur(14px);
+  box-shadow:0 0 18px #00e5ff22,inset 0 1px 0 rgba(255,255,255,.04);
+}
+.left{top:10px;left:8px;width:148px}
+.right{top:10px;right:8px;width:140px}
+.bottom{bottom:10px;left:50%;transform:translateX(-50%);width:min(94%,400px);text-align:center;padding:9px 12px}
+
+.panel-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:600;letter-spacing:1.8px;color:var(--cyan);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #0a3a4a}
+
+select,button{
+  width:100%;padding:8px 5px;margin:3px 0;font-family:'Rajdhani',sans-serif;font-size:12.5px;font-weight:500;
+  color:var(--text);background:linear-gradient(180deg,#0a2a3c,#071e2c);border:1px solid #154a62;
+  border-radius:7px;cursor:pointer;transition:all .15s;outline:none;
+}
+select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%2300e5ff' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center;padding-right:22px}
+select:hover,button:hover{border-color:#1a7a9a;box-shadow:0 0 10px #00e5ff20}
+button:active{transform:scale(.97)}
+button.active{border-color:var(--cyan2);color:var(--cyan2);box-shadow:0 0 10px #7af8e844}
+button.hand-on{border-color:#ffc060;color:#ffc060;box-shadow:0 0 10px #ffc06044}
+
+#jarvis{background:rgba(6,22,34,.7);border-radius:6px;padding:6px 8px;border:1px solid #0e3a4a;font-size:11.5px;color:#9ed4e8;min-height:34px;margin-bottom:5px}
+#trackingStatus{font-size:10.5px;color:#ffc060;margin:2px 0 4px;min-height:13px}
+#message{font-family:'Orbitron',sans-serif;font-size:10.5px;letter-spacing:.8px;color:var(--cyan2);margin-bottom:2px}
+.hint{font-size:10.5px;color:#4a7a8a}
+
+#loader{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center,#041520 0%,#020b14 70%)}
+#loader[hidden]{display:none}
+.loader-box{max-width:280px;padding:22px 18px;background:var(--panel);border:1px solid var(--border);border-radius:12px;box-shadow:0 0 35px #00e5ff20;text-align:center}
+.loader-box h3{font-family:'Orbitron',sans-serif;font-size:12px;letter-spacing:1.8px;color:var(--cyan);margin-bottom:10px}
+.loader-box p{color:var(--muted);font-size:12.5px;margin-bottom:12px}
+.loader-bar{height:3px;background:#0a2a3a;border-radius:2px;overflow:hidden;margin-bottom:12px}
+.loader-bar span{display:block;height:100%;width:28%;background:linear-gradient(90deg,var(--cyan),var(--cyan2));border-radius:2px;animation:loadBar 1.3s ease-in-out infinite}
+@keyframes loadBar{0%{transform:translateX(-100%)}100%{transform:translateX(400%)}}
+#retry{max-width:160px;margin:0 auto;display:none}
+#retry:not([hidden]){display:block}
+
+#video{position:fixed;width:1px;height:1px;opacity:.01;left:0;bottom:0;pointer-events:none}
+
+@media(max-width:520px){
+  header{height:44px;padding:0 10px}
+  .logo{font-size:12.5px;letter-spacing:2px}
+  .logo span{display:none}
+  .time{display:none}
+  main{height:calc(100dvh - 44px)}
+  .left{width:122px;padding:8px;top:7px;left:5px}
+  .right{width:115px;padding:8px;top:7px;right:5px}
+  .bottom{bottom:7px;padding:7px 9px}
+  select,button{padding:7px 4px;font-size:11.5px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">STARK LAB <span>PRO</span></div>
+  <div class="header-right">
+    <div class="time" id="clock">00:00:00</div>
+    <div class="status">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="status">BOOTING</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div id="viewport"></div>
+
+  <div class="panel left">
+    <div class="panel-title">HOLOGRAM</div>
+    <select id="model">
+      <option value="reactor">Arc Reactor</option>
+      <option value="earth">Digital Earth</option>
+      <option value="solar">Solar System</option>
+      <option value="atom">Atomic Model</option>
+      <option value="dna">DNA Helix</option>
+      <option value="brain">Holo Brain</option>
+    </select>
+    <button id="rotate" class="active">⟳ Auto Rotate</button>
+    <button id="explode">◇ Explode</button>
+    <button id="reset">↺ Reset</button>
+  </div>
+
+  <div class="panel right">
+    <div class="panel-title">J.A.R.V.I.S.</div>
+    <div id="jarvis">Systems online...</div>
+    <button id="hand">✋ Hand Tracking</button>
+    <div id="trackingStatus">Tracking: OFF</div>
+    <button id="zoomIn">＋ Zoom In</button>
+    <button id="zoomOut">－ Zoom Out</button>
+  </div>
+
+  <div class="panel bottom">
+    <div id="message">Initializing holographic engine...</div>
+    <div class="hint">Drag to rotate • Pinch/Scroll zoom • Hand: move = rotate</div>
+  </div>
+
+  <div id="loader">
+    <div class="loader-box">
+      <h3 id="loadTitle">J.A.R.V.I.S. BOOT SEQUENCE</h3>
+      <div class="loader-bar"><span></span></div>
+      <p id="loadText">Loading 3D holographic engine...</p>
+      <button id="retry" hidden>Retry Engine</button>
+    </div>
+  </div>
+</main>
+
+<video id="video" autoplay playsinline muted></video>
+
+<script type="module">
+const $ = id => document.getElementById(id);
+const statusEl = $('status'), statusDot = $('statusDot'), message = $('message'), loader = $('loader'), jarvis = $('jarvis');
+
+let THREE, scene, camera, renderer, root, particles;
+let autoRotate = true, exploded = false;
+let handLandmarker = null, cameraStream = null, tracking = false;
+let lastHand = null, lastPinch = null, lastVideoTime = -1, targetZoom = 8;
+
+function updateClock(){ $('clock').textContent = new Date().toLocaleTimeString('en-IN',{hour12:false}); }
+updateClock(); setInterval(updateClock,1000);
+
+function setStatus(text, color='#7af8e8'){ statusEl.textContent=text; statusDot.style.background=color; statusDot.style.boxShadow=`0 0 7px ${color}`; }
+function setMessage(text){ message.textContent=text; }
+function say(text){ jarvis.textContent=text; }
+
+function fail(text){
+  setStatus('ERROR','#ff5555');
+  $('loadTitle').textContent='ENGINE FAILURE';
+  $('loadText').textContent=text;
+  $('retry').hidden=false;
+  loader.hidden=false;
+  setMessage(text);
+}
+
+async function loadThree(){
+  const urls = [
+    'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js',
+    'https://unpkg.com/three@0.160.0/build/three.module.js',
+    'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js'
+  ];
+  for(const url of urls){
+    try{ return await import(url); }catch(e){}
+  }
+  throw new Error('3D engine load failed. Check internet.');
+}
+
+function mat(color, metal=0.55, rough=0.28, emis=0.55){
+  return new THREE.MeshStandardMaterial({color, metalness:metal, roughness:rough, emissive:color, emissiveIntensity:emis});
+}
+function addMesh(geo, material, x=0,y=0,z=0){
+  const m = new THREE.Mesh(geo, material);
+  m.position.set(x,y,z);
+  root.add(m);
+  return m;
+}
+function clearRoot(){
+  while(root.children.length){
+    const obj = root.children.pop();
+    obj.traverse?.(o=>{
+      o.geometry?.dispose?.();
+      if(Array.isArray(o.material)) o.material.forEach(m=>m.dispose());
+      else o.material?.dispose?.();
+    });
+  }
+  particles = null;
+}
+function makeParticles(count, radius, color=0x40eaff){
+  const geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(count*3);
+  for(let i=0;i<count;i++){
+    const r = radius*(0.3+Math.random()*0.8);
+    const theta = Math.random()*Math.PI*2;
+    const phi = Math.acos(2*Math.random()-1);
+    pos[i*3]=r*Math.sin(phi)*Math.cos(theta);
+    pos[i*3+1]=r*Math.sin(phi)*Math.sin(theta);
+    pos[i*3+2]=r*Math.cos(phi);
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({
+    color, size:0.028, transparent:true, opacity:0.8,
+    blending:THREE.AdditiveBlending, depthWrite:false
+  }));
+  root.add(pts);
+  particles = pts;
+}
+
+function buildReactor(){
+  clearRoot(); exploded=false;
+  const blue=0x20dfff, cyan=0x70ffff, steel=0x4a6a80;
+  for(let i=0;i<5;i++){
+    const r=2.0 - i*0.34;
+    addMesh(new THREE.TorusGeometry(r, 0.055+(i%2)*0.02, 12, 90), mat(i%2?blue:steel, 0.75,0.2,0.85));
+  }
+  addMesh(new THREE.SphereGeometry(0.32, 28, 20), mat(cyan,0.3,0.15,1.1));
+  makeParticles(100, 2.6);
+  say('Arc Reactor online.');
+}
+function buildEarth(){
+  clearRoot(); exploded=false;
+  addMesh(new THREE.SphereGeometry(1.5, 40, 28), mat(0x1a6ae0,0.4,0.4,0.45));
+  for(let i=0;i<4;i++){
+    const ring=addMesh(new THREE.TorusGeometry(1.58,0.022,6,70), mat(0x40eaff,0.5,0.3,0.7));
+    ring.rotation.x = i*0.7;
+  }
+  makeParticles(70,2.3);
+  say('Digital Earth ready.');
+}
+function buildSolar(){
+  clearRoot(); exploded=false;
+  addMesh(new THREE.SphereGeometry(0.5,28,20), mat(0xffa030,0.3,0.2,1.3));
+  [1.2,1.9,2.55].forEach((r,i)=>{
+    addMesh(new THREE.TorusGeometry(r,0.01,6,70), mat(0x3080ff,0.5,0.4,0.5));
+    addMesh(new THREE.SphereGeometry(0.13,14,10), mat([0x50e0ff,0xffb060,0x80a0ff][i]), r,0,0);
+  });
+  makeParticles(85,3.0);
+  say('Solar System loaded.');
+}
+function buildAtom(){
+  clearRoot(); exploded=false;
+  addMesh(new THREE.SphereGeometry(0.28,20,14), mat(0xff4060,0.4,0.2,1.0));
+  for(let i=0;i<3;i++){
+    const ring=addMesh(new THREE.TorusGeometry(1.3,0.025,6,70), mat(0x30e0ff,0.55,0.3,0.8));
+    ring.rotation.x=i*1.1; ring.rotation.y=i*0.8;
+  }
+  makeParticles(75,2.0);
+  say('Atomic model projected.');
+}
+function buildDNA(){
+  clearRoot(); exploded=false;
+  for(let i=0;i<16;i++){
+    const y=(i-8)*0.2, a=i*0.55;
+    addMesh(new THREE.SphereGeometry(0.11,10,8), mat(0x30c0ff), Math.cos(a)*0.65,y,Math.sin(a)*0.65);
+    addMesh(new THREE.SphereGeometry(0.11,10,8), mat(0xff5080), Math.cos(a+Math.PI)*0.65,y,Math.sin(a+Math.PI)*0.65);
+  }
+  makeParticles(60,1.9);
+  say('DNA Helix ready.');
+}
+function buildBrain(){
+  clearRoot(); exploded=false;
+  addMesh(new THREE.SphereGeometry(1.2,28,20), mat(0x80a0ff,0.3,0.5,0.35));
+  for(let i=0;i<5;i++){
+    const ring=addMesh(new THREE.TorusGeometry(1.0+i*0.07,0.018,5,50), mat(0x40e0ff,0.5,0.3,0.65));
+    ring.rotation.x=Math.random()*1.4; ring.rotation.y=Math.random()*1.4;
+  }
+  makeParticles(90,2.2);
+  say('Neural hologram active.');
+}
+
+const models = {reactor:buildReactor, earth:buildEarth, solar:buildSolar, atom:buildAtom, dna:buildDNA, brain:buildBrain};
+
+async function init(){
+  try{
+    setStatus('LOADING');
+    setMessage('Connecting to holographic core...');
+    say('Boot sequence started.');
+
+    THREE = await loadThree();
+
+    const test = document.createElement('canvas');
+    if(!(test.getContext('webgl')||test.getContext('experimental-webgl'))){
+      throw new Error('WebGL not supported. Try Chrome browser.');
+    }
+
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x020b14);
+    scene.fog = new THREE.Fog(0x020b14, 11, 26);
+
+    camera = new THREE.PerspectiveCamera(45,1,0.1,80);
+    camera.position.z = targetZoom;
+
+    const container = $('viewport');
+    renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:'high-performance'});
+    renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    container.appendChild(renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0xffffff,1.5));
+    const light = new THREE.PointLight(0x40e0ff, 35, 28);
+    light.position.set(3.5,4.5,5.5);
+    scene.add(light);
+    const light2 = new THREE.PointLight(0x2080ff, 18, 22);
+    light2.position.set(-3.5,-1.5,3.5);
+    scene.add(light2);
+
+    root = new THREE.Group();
+    scene.add(root);
+
+    const grid = new THREE.GridHelper(11, 22, 0x0a4a6a, 0x062a3a);
+    grid.position.y = -2.6;
+    scene.add(grid);
+
+    function resize(){
+      const w=container.clientWidth, h=container.clientHeight;
+      renderer.setSize(w,h);
+      camera.aspect=w/h;
+      camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize',resize);
+    resize();
+
+    let dragging=false, lastX=0, lastY=0;
+    const canvas = renderer.domElement;
+    canvas.addEventListener('pointerdown',e=>{ dragging=true; lastX=e.clientX; lastY=e.clientY; canvas.setPointerCapture(e.pointerId); });
+    canvas.addEventListener('pointermove',e=>{
+      if(!dragging) return;
+      root.rotation.y += (e.clientX-lastX)*0.008;
+      root.rotation.x += (e.clientY-lastY)*0.008;
+      lastX=e.clientX; lastY=e.clientY;
+    });
+    canvas.addEventListener('pointerup',()=>dragging=false);
+    canvas.addEventListener('pointercancel',()=>dragging=false);
+    canvas.addEventListener('wheel',e=>{
+      e.preventDefault();
+      targetZoom = Math.max(3.5, Math.min(13, targetZoom + e.deltaY*0.012));
+    },{passive:false});
+
+    $('model').onchange = e => { models[e.target.value]?.(); root.rotation.set(0.22,0.35,0); };
+    $('rotate').onclick = ()=>{ autoRotate=!autoRotate; $('rotate').classList.toggle('active',autoRotate); };
+    $('explode').onclick = ()=>{ exploded=!exploded; $('explode').classList.toggle('active',exploded); };
+    $('reset').onclick = ()=>{ root.rotation.set(0.22,0.35,0); targetZoom=8; exploded=false; $('explode').classList.remove('active'); };
+    $('zoomIn').onclick = ()=> targetZoom=Math.max(3.5,targetZoom-1.1);
+    $('zoomOut').onclick = ()=> targetZoom=Math.min(13,targetZoom+1.1);
+
+    $('hand').onclick = async ()=>{
+      if(tracking){
+        tracking=false;
+        if(cameraStream) cameraStream.getTracks().forEach(t=>t.stop());
+        $('hand').classList.remove('hand-on');
+        $('trackingStatus').textContent='Tracking: OFF';
+        say('Hand tracking off.');
+        return;
+      }
+      try{
+        setMessage('Starting camera...');
+        const mp = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs');
+        const vision = await mp.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
+        handLandmarker = await mp.HandLandmarker.createFromOptions(vision,{
+          baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task'},
+          runningMode:'VIDEO', numHands:1
+        });
+        cameraStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:640,height:480},audio:false});
+        const video=$('video');
+        video.srcObject=cameraStream;
+        await video.play();
+        tracking=true;
+        $('hand').classList.add('hand-on');
+        $('trackingStatus').textContent='Tracking: ON';
+        say('Hand tracking enabled.');
+        setMessage('Hand tracking active');
+        trackHand();
+      }catch(err){
+        say('Camera not available.');
+        setMessage('Camera error');
+      }
+    };
+
+    function trackHand(){
+      if(!tracking||!handLandmarker) return;
+      const video=$('video');
+      if(video.readyState>=2 && video.currentTime!==lastVideoTime){
+        lastVideoTime=video.currentTime;
+        const result=handLandmarker.detectForVideo(video,performance.now());
+        if(result.landmarks?.length){
+          const tip=result.landmarks[0][8], thumb=result.landmarks[0][4];
+          if(lastHand){
+            root.rotation.y += (lastHand.x-tip.x)*3.2;
+            root.rotation.x += (tip.y-lastHand.y)*3.2;
+          }
+          lastHand={x:tip.x,y:tip.y};
+          const dist=Math.hypot(tip.x-thumb.x,tip.y-thumb.y);
+          if(dist<0.2){
+            if(lastPinch!==null) targetZoom=Math.max(3.5,Math.min(13,targetZoom+(lastPinch-dist)*12));
+            lastPinch=dist;
+          }else lastPinch=null;
+          $('trackingStatus').textContent='Hand detected';
+        }else{
+          lastHand=null; lastPinch=null;
+          $('trackingStatus').textContent='Show hand clearly';
+        }
+      }
+      requestAnimationFrame(trackHand);
+    }
+
+    buildReactor();
+    root.rotation.set(0.22,0.35,0);
+
+    loader.hidden=true;
+    setStatus('ONLINE');
+    setMessage('Holographic systems ready');
+    say('All systems operational, Sir.');
+
+    function animate(){
+      requestAnimationFrame(animate);
+      if(autoRotate && !lastHand) root.rotation.y += 0.0035;
+      if(exploded && particles){ particles.rotation.y+=0.009; particles.rotation.x+=0.005; }
+      camera.position.z += (targetZoom - camera.position.z)*0.08;
+      renderer.render(scene,camera);
+    }
+    animate();
+
+  }catch(err){
+    console.error(err);
+    fail(err.message || 'Unknown error. Try Chrome.');
+  }
+}
+
+$('retry').onclick = ()=>{
+  $('retry').hidden=true;
+  loader.hidden=false;
+  $('loadTitle').textContent='J.A.R.V.I.S. BOOT SEQUENCE';
+  $('loadText').textContent='Retrying...';
+  init();
+};
+
+init();
+</script>
+</body>
+  </html>
